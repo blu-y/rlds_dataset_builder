@@ -2,3 +2,5 @@
 wandb
 __pycache__
 .idea
+*.npy
+kinova/episode/*
