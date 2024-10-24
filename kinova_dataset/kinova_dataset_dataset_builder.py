@@ -7,12 +7,12 @@ import tensorflow_datasets as tfds
 import tensorflow_hub as hub
 
 
-class ExampleDataset(tfds.core.GeneratorBasedBuilder):
+class KinovaDataset(tfds.core.GeneratorBasedBuilder):
     """DatasetBuilder for example dataset."""
 
-    VERSION = tfds.core.Version('1.0.0')
+    VERSION = tfds.core.Version('0.0.1')
     RELEASE_NOTES = {
-      '1.0.0': 'Initial release.',
+      '0.0.1': 'Initial release.',
     }
 
     def __init__(self, *args, **kwargs):
