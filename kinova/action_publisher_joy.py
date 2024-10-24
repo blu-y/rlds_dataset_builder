@@ -44,12 +44,14 @@ class ActionPublisherJoy(Node):
         speed = msg.axes[3] + 2
         action.linear.x = msg.axes[4] * self.linear_speed * speed
         action.linear.y = msg.axes[5] * self.linear_speed * speed
-        action.linear.z = (msg.buttons[12] - msg.buttons[13]) * self.linear_speed * speed
+        action.linear.z = 0.5 * (msg.buttons[12] - msg.buttons[13]) * self.linear_speed * speed
         action.angular.x = -msg.axes[1] * self.angular_speed * speed
         action.angular.y = msg.axes[0] * self.angular_speed * speed
-        action.angular.z = msg.axes[2] * self.angular_speed * speed
+        action.angular.z = -msg.axes[2] * self.angular_speed * speed
         self.action_pub.publish(action)
-        self.get_logger().info('Publishing action: {}'.format(action))
+        print(f"\033[H\033[J", end="")  # Clear the screen
+        print(f'Linear: {action.linear.x:.2f}, {action.linear.y:.2f}, {action.linear.z:.2f}')
+        print(f'Angular: {action.angular.x:.2f}, {action.angular.y:.2f}, {action.angular.z:.2f}')
         if msg.buttons[0] == 1:
             self.toggle_gripper()
         # frame = self.cam.getFrame()
@@ -59,9 +61,9 @@ class ActionPublisherJoy(Node):
         # frame = cv2.resize(frame, (256, 256))
         # wrist_frame = cv2.resize(wrist_frame, (256, 256))
         # frame = np.concatenate((frame, wrist_frame), axis=1)
-        if self.frame is None: return
-        cv2.imshow('frame', self.frame)
-        cv2.waitKey(1)
+        # if self.frame is None: return
+        # cv2.imshow('frame', self.frame)
+        # cv2.waitKey(1)
 
 def main(args=None):
     rclpy.init(args=args)

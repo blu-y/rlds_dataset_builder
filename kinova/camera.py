@@ -8,7 +8,7 @@ class Camera2:
     last_ready = None
     lock = Lock()
     capture=None
-    def __init__(self, rtsp_link=0, w=320, h=240):
+    def __init__(self, rtsp_link=1, w=320, h=240):
         self.w = w
         self.h = h
         self.capture = cv2.VideoCapture(rtsp_link)
@@ -34,7 +34,7 @@ class Camera1:
     last_ready = None
     lock = Lock()
     capture=None
-    def __init__(self, rtsp_link=6, w=320, h=240):
+    def __init__(self, rtsp_link=8, w=320, h=240):
         self.w = w
         self.h = h
         self.capture = cv2.VideoCapture(rtsp_link)

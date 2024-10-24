@@ -1,0 +1,20 @@
+1. pick up the can and place it on the box
+2. pick up the tape and put it in the box
+3. place the can next to the tape
+4. put the tape on the box
+5. pick up the box and place it next to the can
+6. place the tape in the box
+7. pick up the can and put it next to the box
+8. place the box on the tape
+9. pick up the tape and place it next to the can
+10. put the can in the box
+11. place the tape on the can
+12. pick up the box and put it on the tape
+13. place the can in the box
+14. pick up the tape and put it next to the box
+15. place the box next to the can
+16. pick up the can
+17. pick up the tape
+18. pick up the box
+19. place the can on the table
+20. place the tape on the table

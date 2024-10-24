@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from std_msgs.msg import String
 from sensor_msgs.msg import JointState, Image
 from geometry_msgs.msg import Twist
 import pickle
@@ -12,6 +13,14 @@ import os
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 from tf2_geometry_msgs import do_transform_point
+
+def dataset_directory(dir='kinova/episode'):
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    existing_files = os.listdir(dir)
+    episode_numbers = [int(f.split('_')[1].split('.')[0]) for f in existing_files if f.startswith('episode_') and f.endswith('.pkl')]
+    next_episode_number = max(episode_numbers, default=0) + 1
+    return f'{dir}/episode_{next_episode_number}.pkl'
 
 class JointStateSubscriber(Node):
     def __init__(self):
@@ -36,6 +45,14 @@ class JointStateSubscriber(Node):
             '/camera/color/image_raw',
             self.wrist_cb,
             10)
+        self.new_episode_sub = self.create_subscription(
+            String,
+            '/new_episode',
+            self.new_episode_cb,
+            1)
+        self.get_logger().info('For new episode, publish to /new_episode')
+        self.get_logger().info('\tros2 topic pub /new_episode std_msgs/msg/String "data: \'Pick up the can\'" -1')
+        # ros2 topic pub /new_episode std_msgs/msg/String "data: 'Pick up the can'" -1
         self.br = CvBridge()
         self.episode = []
         self.action = Twist()
@@ -45,7 +62,38 @@ class JointStateSubscriber(Node):
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.timer_on = True
         self.timer = self.create_timer(0.1, self.timer_cb)
-        self.instruction = 'Pick up the plastic and place it next to the box'
+        self.instruction = 'Pick up the can'
+        self.joint_state_old = None
+
+    def joint_state_changed(self, joint_state):
+        if self.joint_state_old is None:
+            self.joint_state_old = joint_state
+            return True
+        for i, j in zip(joint_state.position, self.joint_state_old.position):
+            if abs(i - j) > 0.01:
+                return True
+        return False
+
+    def new_episode_cb(self, msg):
+        if msg.data == self.instruction:
+            return
+        self.get_logger().info(f'New episode: {msg.data}')
+        if msg.data == 'pause':
+            self.timer_on = False
+            self.get_logger().info('Paused...')
+            return
+        if msg.data == 'reset':
+            self.steps = []
+            self.timer_on = False
+            self.get_logger().info('Reset with new steps...')
+            return
+        self.timer_on = False
+        if len(self.steps) > 0:
+            self.save_episode(dataset_directory())
+        self.steps = []
+        self.i = 0
+        self.instruction = msg.data
+        self.timer_on = True
 
     def get_robot_state(self, transform):
         x, y, z = transform.transform.translation.x, transform.transform.translation.y, transform.transform.translation.z
@@ -61,15 +109,16 @@ class JointStateSubscriber(Node):
         return joint_state, action
 
     def step(self, frame, wrist_frame):
+        if not self.joint_state_changed(self.joint_state): 
+            self.i += 1
+            if self.i % 10 == 0:
+                self.get_logger().info('Joint state not changed')
+            return
+        self.joint_state_old = self.joint_state
         try:  
             transform = self.tf_buffer.lookup_transform('base_link', 'tool_frame', rclpy.time.Time())
         except: return
         state, action = self.get_robot_state(transform)
-        frame = cv2.resize(frame, (256, 256))
-        wrist_frame = cv2.resize(wrist_frame, (256, 256))
-        frame_pub = np.concatenate((frame, wrist_frame), axis=1)
-        msg = self.br.cv2_to_imgmsg(frame_pub)
-        self.image_pub.publish(msg)
         step = {
             'image': frame,
             'wrist_image': wrist_frame,
@@ -79,7 +128,7 @@ class JointStateSubscriber(Node):
         }
         self.steps.append(step)
         self.i += 1
-        if self.i % 10 == 0:
+        if self.i % 50 == 0:
             # round joint_state to 3 decimal places
             state = [round(x, 3) for x in state]
             # round action to 3 decimal places
@@ -95,7 +144,14 @@ class JointStateSubscriber(Node):
             return
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         wrist_frame = cv2.cvtColor(wrist_frame, cv2.COLOR_BGR2RGB)
-        self.step(frame, wrist_frame)
+        frame = cv2.resize(frame, (256, 256))
+        wrist_frame = cv2.resize(wrist_frame, (256, 256))
+        frame_pub = np.concatenate((frame, wrist_frame), axis=1)
+        msg = self.br.cv2_to_imgmsg(frame_pub)
+        self.image_pub.publish(msg)
+        if self.timer_on:
+            self.step(frame, wrist_frame)
+            
 
     def wrist_cb(self, msg):
         if self.timer_on:
@@ -118,6 +174,7 @@ class JointStateSubscriber(Node):
             pickle.dump(self.steps, f)
         self.get_logger().info(f'Saved joint states to {filename}')
 
+
 def main(args=None):
     rclpy.init(args=args)
     joint_state_subscriber = JointStateSubscriber()
@@ -130,7 +187,7 @@ def main(args=None):
     existing_files = os.listdir('kinova/episode')
     episode_numbers = [int(f.split('_')[1].split('.')[0]) for f in existing_files if f.startswith('episode_') and f.endswith('.pkl')]
     next_episode_number = max(episode_numbers, default=0) + 1
-    joint_state_subscriber.save_episode(f'kinova/episode/episode_{next_episode_number}.pkl')
+    joint_state_subscriber.save_episode(dataset_directory())
     joint_state_subscriber.destroy_node()
     rclpy.shutdown()
 
